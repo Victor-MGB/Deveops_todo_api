@@ -1,0 +1,28 @@
+# Node dependencies (we install them inside Docker)
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Logs
+logs
+*.log
+
+# Git files
+.git
+.gitignore
+
+# Dockerfile itself (optional)
+Dockerfile
+.dockerignore
+
+# OS / IDE files
+*.swp
+*.DS_Store
+.vscode
+.idea
+
+# Environment variables (you should set them in Docker, not copy local files)
+.env
+.env.local
+.env.development
+.env.test
