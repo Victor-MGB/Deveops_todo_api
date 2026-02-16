@@ -1,21 +1,24 @@
-name: CI
+
+name: CI - Build & Push Docker
 
 on:
   push:
     branches:
-      - main
+      - main        
   pull_request:
     branches:
-      - main
+      - main        
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      # 1️⃣ Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v2
 
+      # 2️⃣ Setup Node.js
       - name: Set up Node.js
         uses: actions/setup-node@v2
         with:
@@ -30,30 +33,40 @@ jobs:
       - name: Build project
         run: npm run build
 
-      - name: Set Docker image name and tags
+      - name: Set Docker variables
         id: docker-vars
         run: |
+          # Make owner lowercase
           OWNER=$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')
           IMAGE_NAME="ghcr.io/$OWNER/my-app"
           echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
 
-          TAGS="latest"
-          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+          # Determine tags
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             TAGS=$(echo "$GITHUB_REF_NAME" | tr '[:upper:]' '[:lower:]')
           else
-            if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
-              TAGS="$TAGS,${GITHUB_SHA::7}"
+            if [[ "$GITHUB_REF_NAME" == "main" ]]; then
+              TAGS="latest,${GITHUB_SHA::7}"
             else
-              BRANCH_TAG=$(echo "${GITHUB_REF_NAME}" | tr / - | tr '[:upper:]' '[:lower:]')
+              BRANCH_TAG=$(echo "$GITHUB_REF_NAME" | tr / - | tr '[:upper:]' '[:lower:]')
               TAGS="$BRANCH_TAG,${BRANCH_TAG}-${GITHUB_SHA::7}"
             fi
           fi
           echo "TAGS=$TAGS" >> $GITHUB_ENV
+          echo "Docker image: $IMAGE_NAME"
+          echo "Tags: $TAGS"
 
-      - name: Build and push Docker image
+      # 7️⃣ Log in to GitHub Container Registry
+      - name: Log in to GHCR
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push Docker image
         run: |
+          echo "Building and pushing Docker images..."
           for TAG in ${TAGS//,/ }; do
-            docker buildx build \
-              --tag "$IMAGE_NAME:$TAG" \
-              --push .
-          done
+            echo "Processing tag: $TAG"
+            docker buildx build --push --tag "$IMAGE_NAME:$TAG" .
